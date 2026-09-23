@@ -1,5 +1,7 @@
 "use client";
 
+import { FixedExample } from '@/components/demo/demo-context';
+import { PLMProductionHandover } from '@/components/modules/plm-production-handover';
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -117,6 +119,7 @@ export default function MaterialPlanningWorkbenchPage() {
 
   return (
     <div className="space-y-6">
+      <PLMProductionHandover/><FixedExample>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
         <div>
@@ -291,6 +294,7 @@ export default function MaterialPlanningWorkbenchPage() {
           </div>
         </div>
       </div>
+    </FixedExample>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ModuleNode, MODULES } from "@/lib/constants/module-map";
+import { ModuleNode, MODULES, MODULE_FEATURES } from "@/lib/constants/module-map";
 import {
   ExternalLink,
   ArrowUpRight,
@@ -67,7 +67,7 @@ export function ModuleDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Live KPIs */}
+        <p className="text-xs text-muted-foreground">Illustrative module reference metrics; use the scoped dashboard for current demo totals.</p>
         <div className="grid grid-cols-3 gap-2.5">
           {module.kpis.map((kpi, idx) => (
             <div
@@ -87,7 +87,7 @@ export function ModuleDrawer({
             What you can do here
           </h4>
           <ul className="space-y-1.5 text-xs">
-            {module.responsibilities.map((resp, i) => (
+            {(MODULE_FEATURES[module.id] || module.responsibilities).map((resp, i) => (
               <li key={i} className="flex items-start gap-2 text-foreground/90">
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
                 <span>{resp}</span>

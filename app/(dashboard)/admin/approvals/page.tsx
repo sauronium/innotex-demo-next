@@ -1,5 +1,7 @@
 "use client";
 
+import {useDemo} from '@/components/demo/demo-context';
+import {inScope,approvalScope,canDecideApproval} from '@/lib/demo-scope';
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,13 +32,14 @@ import {
   Layers,
   Sparkles,
 } from "lucide-react";
-import { DEMO_PERSONAS, DemoPersona } from "@/lib/constants/demo-personas";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { approveDocumentRequest } from "@/lib/supabase/rpc";
 import { toast } from "sonner";
 import Link from "next/link";
 
 interface ApprovalItem {
+  decisionNote?: string;
+  decidedBy?: string;
+  decidedAt?: string;
   id: string;
   documentType: "PURCHASE_ORDER" | "BOM_REVISION" | "STOCK_ADJUSTMENT" | "BULK_RELEASE";
   documentNumber: string;
@@ -143,19 +146,14 @@ const INITIAL_APPROVAL_REQUESTS: ApprovalItem[] = [
 export default function ApprovalsPage() {
   const [requests, setRequests] = useState<ApprovalItem[]>(INITIAL_APPROVAL_REQUESTS);
   const [activeTab, setActiveTab] = useState("pending");
-  const [currentPersona, setCurrentPersona] = useState<DemoPersona>(DEMO_PERSONAS[0]); // Management default
+  const {persona:currentPersona,scope}=useDemo();
   const [selectedRequest, setSelectedRequest] = useState<ApprovalItem | null>(null);
   const [actionDialog, setActionDialog] = useState<"APPROVE" | "REJECT" | null>(null);
   const [comments, setComments] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessing = false;
 
-  useEffect(() => {
-    const savedRole = localStorage.getItem("innotex_active_persona");
-    if (savedRole) {
-      const found = DEMO_PERSONAS.find((p) => p.id === savedRole);
-      if (found) setCurrentPersona(found);
-    }
-  }, []);
+  useEffect(()=>{setActionDialog(null);setSelectedRequest(null)},[currentPersona.id,scope.unit,scope.location]);
+  useEffect(()=>{try{const raw=localStorage.getItem('innotex-demo-approvals-v1');if(raw){const saved=JSON.parse(raw);if(Array.isArray(saved))setRequests(saved)}}catch{toast.error('Saved demo approvals could not be loaded')}},[]);
 
   const handleDecision = async (decision: "APPROVED" | "REJECTED") => {
     if (!selectedRequest) return;
@@ -166,56 +164,21 @@ export default function ApprovalsPage() {
       return;
     }
 
-    setIsProcessing(true);
-
-    try {
-      // Call Supabase RPC
-      await approveDocumentRequest({
-        requestId: selectedRequest.id,
-        decision,
-        actorId: currentPersona.id,
-        comments: comments || `${decision} by ${currentPersona.name} (${currentPersona.roleName})`,
-      });
-
-      // Optimistic update
-      setRequests((prev) =>
-        prev.map((item) =>
-          item.id === selectedRequest.id
-            ? { ...item, status: decision }
-            : item
-        )
-      );
-
-      toast.success(
-        `Document ${selectedRequest.documentNumber} has been ${decision.toLowerCase()} by ${currentPersona.name}`
-      );
-      setActionDialog(null);
-      setSelectedRequest(null);
-      setComments("");
-    } catch {
-      // Even if mock/offline, update UI
-      setRequests((prev) =>
-        prev.map((item) =>
-          item.id === selectedRequest.id
-            ? { ...item, status: decision }
-            : item
-        )
-      );
-      toast.success(`Document ${selectedRequest.documentNumber} has been ${decision.toLowerCase()}`);
-      setActionDialog(null);
-      setSelectedRequest(null);
-      setComments("");
-    } finally {
-      setIsProcessing(false);
-    }
+    if (!canDecideApproval(currentPersona,selectedRequest,scope)) {toast.error('This decision is not available for your current role and scope.');return;}
+    if(selectedRequest.status !== 'PENDING')return;
+    const next=requests.map(item=>item.id===selectedRequest.id?{...item,status:decision,decisionNote:comments.trim(),decidedBy:currentPersona.name,decidedAt:new Date().toISOString()}:item);
+    setRequests(next);
+    try {localStorage.setItem('innotex-demo-approvals-v1',JSON.stringify(next));toast.success('Demo decision saved: '+decision.toLowerCase());}catch{toast.error('Decision applies for this session only; storage unavailable.');}
+    setActionDialog(null);setSelectedRequest(null);setComments('');
   };
+  const scopedRequests = requests.filter(req=>inScope(approvalScope(req),scope));
 
-  const pendingCount = requests.filter((r) => r.status === "PENDING").length;
-  const highValueCount = requests.filter((r) => r.amount && r.amount > 500000 && r.status === "PENDING").length;
-  const approvedCount = requests.filter((r) => r.status === "APPROVED").length;
-  const rejectedCount = requests.filter((r) => r.status === "REJECTED").length;
+  const pendingCount = scopedRequests.filter((r) => r.status === "PENDING").length;
+  const highValueCount = scopedRequests.filter((r) => r.amount && r.amount > 500000 && r.status === "PENDING").length;
+  const approvedCount = scopedRequests.filter((r) => r.status === "APPROVED").length;
+  const rejectedCount = scopedRequests.filter((r) => r.status === "REJECTED").length;
 
-  const filteredRequests = requests.filter((r) => {
+  const filteredRequests = scopedRequests.filter((r) => {
     if (activeTab === "pending") return r.status === "PENDING";
     if (activeTab === "high-value") return r.amount && r.amount > 500000 && r.status === "PENDING";
     if (activeTab === "approved") return r.status === "APPROVED";
@@ -238,7 +201,7 @@ export default function ApprovalsPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Enforces multi-level approvals, procurement value thresholds (&gt; ₹5,00,000), and strict segregation of duties.
+            Local demo approval queue with role checks and maker/checker separation. Decisions are saved in this browser; no backend approval is submitted.
           </p>
         </div>
 
@@ -355,7 +318,7 @@ export default function ApprovalsPage() {
           ) : (
             filteredRequests.map((req) => {
               const isMaker = currentPersona.role === req.makerRole || currentPersona.email === req.makerEmail;
-              const canApprove = !isMaker && (currentPersona.role === req.requiredRole || currentPersona.role === "MANAGEMENT" || currentPersona.role === "ADMIN");
+              const canApprove = canDecideApproval(currentPersona,req,scope);
 
               return (
                 <Card key={req.id} className="border-border hover:border-slate-700 transition-all shadow-xs">
@@ -377,6 +340,7 @@ export default function ApprovalsPage() {
                       </div>
                       <CardTitle className="text-sm font-semibold text-foreground">
                         {req.title}
+                        {req.decidedBy && <span className="mt-2 block text-xs font-normal text-muted-foreground">Decision by {req.decidedBy} · {req.decidedAt && formatDateTime(req.decidedAt)}{req.decisionNote && ` · ${req.decisionNote}`}</span>}
                       </CardTitle>
                     </div>
 

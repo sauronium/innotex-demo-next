@@ -1,5 +1,6 @@
 "use client";
 
+import { useDemo } from '@/components/demo/demo-context';
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DEMO_PERSONAS, DemoPersona, DEMO_PASSWORD } from "@/lib/constants/demo-personas";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -98,6 +98,7 @@ const ENRICHED_USERS: UserProfileWithScopes[] = DEMO_PERSONAS.map((p) => {
 
 export default function UsersDirectoryPage() {
   const router = useRouter();
+  const {setPersona}=useDemo();
   const [users] = useState<UserProfileWithScopes[]>(ENRICHED_USERS);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("directory");
@@ -111,21 +112,10 @@ export default function UsersDirectoryPage() {
       u.primaryFacility.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSwitchPersona = async (persona: DemoPersona) => {
-    localStorage.setItem("innotex_active_persona", persona.id);
-
-    try {
-      const supabase = createClient();
-      await supabase.auth.signInWithPassword({
-        email: persona.email,
-        password: DEMO_PASSWORD,
-      });
-      toast.success(`Switched active persona to ${persona.name} (${persona.roleName})`);
-    } catch {
-      toast.success(`Switched active persona to ${persona.name}`);
-    }
-
-    router.refresh();
+  const handleSwitchPersona = (persona: DemoPersona) => {
+    setPersona(persona.id);
+    toast.success('Demo persona switched to '+persona.roleName);
+    router.push('/dashboard');
   };
 
   return (

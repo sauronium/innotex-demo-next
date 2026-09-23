@@ -1,5 +1,7 @@
 "use client";
 
+import { useDemo } from '@/components/demo/demo-context';
+import { canOpenRoute } from '@/lib/demo-scope';
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -24,6 +26,7 @@ import {
   PlugZap,
   ShieldCheck,
   Building,
+  Users,
 } from "lucide-react";
 
 interface NavItem {
@@ -41,6 +44,7 @@ interface NavSection {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const {persona} = useDemo();
 
   const navSections: NavSection[] = [
     {
@@ -69,10 +73,20 @@ export function Sidebar() {
           icon: Database,
         },
         {
-          title: "PLM & Sampling",
+          title: "Master PLM",
           href: "/plm/designs",
           icon: Sparkles,
-          badge: "Gate 1",
+          badge: "Looker",
+        },
+        {
+          title: "Client PLM",
+          href: "/plm/clients",
+          icon: Sparkles,
+        },
+        {
+          title: "CRM Client History",
+          href: "/crm/clients",
+          icon: Users,
         },
         {
           title: "Sales Enquiries",
@@ -226,7 +240,7 @@ export function Sidebar() {
               {section.title}
             </h4>
             <div className="space-y-0.5">
-              {section.items.map((item) => {
+              {section.items.filter(item=>canOpenRoute(persona.role,item.href)).map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 const Icon = item.icon;
 
@@ -272,7 +286,7 @@ export function Sidebar() {
       <div className="p-3 border-t border-slate-800/80 bg-slate-900/60 text-xs text-slate-400 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] text-slate-300 font-medium">Supabase Connected</span>
+          <span className="text-[11px] text-slate-300 font-medium">Scoped demo</span>
         </div>
         <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-700 py-0">
           Demo Mode

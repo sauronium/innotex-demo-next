@@ -111,25 +111,25 @@ export const MODULES: ModuleNode[] = [
   {
     id: "plm-sampling",
     name: "Product Lifecycle & Sampling (PLM)",
-    shortName: "PLM & Sampling",
+    shortName: "Master & Client PLM",
     number: 4,
     category: "transaction",
     route: "/plm/designs",
     icon: "Sparkles",
-    description: "Design briefs, product specifications, sample iterations, and mandatory bulk release gates.",
+    description: "Master PLM aggregates client status and hosts the Library POT. Client PLM progresses products from CRM-derived requirements through delivery.",
     responsibilities: [
-      "Design brief registration with season and artwork attachments",
-      "Product specification revisions and customer requirement tracking",
-      "Sample iterations at Tirupur Atelier with QC results",
-      "Customer approval gate before bulk sales order release",
+      "Master PLM: shared material and product libraries, plus Looker status tables",
+      "Client PLM: Derivatives, R&D, Processing and Product Evaluation",
+      "Production, Cutting, Stitching, Finishing and Inventory with QC evidence",
+      "Delivery quantities, invoice references, geo-tags, payment status and followups",
     ],
     ownerRoles: ["SALES", "MANAGEMENT", "QUALITY"],
     upstream: ["master-data"],
-    downstream: ["sales-orders", "bom-mrp", "quality-management"],
+    downstream: ["sales-orders", "bom-mrp", "quality-management", "inventory-traceability"],
     kpis: [
-      { label: "Active Briefs", value: "6" },
-      { label: "Approved Samples", value: "12" },
-      { label: "Bulk Released", value: "9" },
+      { label: "Client products", value: "10" },
+      { label: "Sample references", value: "12" },
+      { label: "Material records", value: "70" },
     ],
     goldenStep: 1,
     x: 280,
@@ -259,10 +259,10 @@ export const MODULES: ModuleNode[] = [
       "Stock reservation against confirmed production orders",
     ],
     ownerRoles: ["STORE", "PRODUCTION"],
-    upstream: ["inward-grn", "production-execution"],
+    upstream: ["inward-grn", "production-execution", "plm-sampling"],
     downstream: ["bom-mrp", "production-execution", "dispatch-logistics"],
     kpis: [
-      { label: "Active Rolls", value: "48" },
+      { label: "Seeded rolls", value: "20" },
       { label: "Stock Value", value: "₹34.8L" },
       { label: "Quarantine Rolls", value: "2" },
     ],
@@ -461,6 +461,8 @@ export const MODULES: ModuleNode[] = [
 ];
 
 export const MODULE_EDGES: ModuleEdge[] = [
+ {from:"plm-sampling",to:"inventory-traceability",label:"Material POT and client product references",entityOrEvent:"PLM material IDs -> roll genealogy -> reservation and cutting issue",workflowIds:["golden-path"]},
+
   {
     from: "identity-access",
     to: "master-data",
@@ -602,3 +604,23 @@ export const MODULE_EDGES: ModuleEdge[] = [
     workflowIds: ["workflow-e", "golden-path"],
   },
 ];
+
+// Features shown on the module map and in the details drawer.
+export const MODULE_FEATURES: Record<string,string[]> = {
+ 'identity-access':['Ten demo personas with role-aware navigation','Module availability changes with role','Approval queue and audit examples'],
+ 'organization-locations':['Four business units and six locations','Persistent role, unit and location selectors','Shared data scope across PLM, rolls and dashboard'],
+ 'master-data':['Item, customer and supplier reference lists','Unit and location reference masters','Shared lookup data for sample transactions'],
+ 'plm-sampling':['Master PLM: coloured Kanban, table, progress and CSV export','Client PLM: Derivatives → Delivery with approval and CQP gates','Library POT: 70 materials, 50 fabrics and six sample categories','Owners, priorities, blockers, due dates and followups','Role-specific stage editing and unit/location filters'],
+ 'sales-orders':['Enquiry and quotation examples','Size-wise order quantities and order confirmation','Customer specifications and document connections'],
+ 'bom-mrp':['Scoped PLM production handover Kanban and table','Deep links to client products and QC evidence','Sample BOM consumption, wastage and shortage calculation'],
+ 'procurement':['Purchase requisition and RFQ examples','Supplier quotation comparison','Purchase order approval sample'],
+ 'inward-grn':['Gate entry and delivery references','Accepted, hold and rejected quantity examples','Incoming QC and supplier lot references'],
+ 'inventory-traceability':['Scoped fabric rolls in table and status Kanban','Material POT and client-product references','Supplier lot, batch, shade, bin and movement timeline','Remaining, reserved and available metre balances','Role-controlled QC, reservation and issue actions'],
+ 'production-execution':['Production order and operation cards','Cutting-to-packing execution sample','Good, scrap and rework quantity reconciliation'],
+ 'job-work':['Subcontract order and issue challan sample','Material at subcontractor tracking','Receipt, scrap and service reconciliation'],
+ 'quality-management':['Incoming and in-process inspection examples','Pass, fail and hold dispositions','Quality parameters and linked document references'],
+ 'dispatch-logistics':['Pick and pack allocation sample','Partial shipment and delivery challan examples','Transport and proof-of-delivery references'],
+ 'finance-costing':['Invoice, GST and payment examples','Nine-component order costing waterfall','Margin and outstanding amount summaries'],
+ 'reports-dashboard':['Scoped PLM progress and fabric roll KPIs','Role-aware module shortcuts and attention queue','Fixed sample reporting registers'],
+ 'integrations-documents':['Simulated adapter catalogue','Payload and retry demonstration','Linked document and integration event examples'],
+};

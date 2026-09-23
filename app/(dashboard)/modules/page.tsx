@@ -1,9 +1,11 @@
 "use client";
 
+import { useDemo } from '@/components/demo/demo-context';
+import { canOpenRoute } from '@/lib/demo-scope';
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MODULES, type ModuleNode } from "@/lib/constants/module-map";
+import { MODULES, MODULE_FEATURES, type ModuleNode } from "@/lib/constants/module-map";
 import { type WorkflowStep } from "@/lib/constants/workflows";
 import { WorkflowPlayer } from "@/components/modules/workflow-player";
 import { ModuleDrawer } from "@/components/modules/module-drawer";
@@ -20,12 +22,12 @@ const STAGES = [
 ];
 
 const SUMMARIES: Record<string, string> = {
-  "plm-sampling": "Develop designs, review samples and approve products for production.",
+  "plm-sampling": "Master PLM overview and Library POT, with client products progressing from Derivatives through Delivery.",
   "sales-orders": "Manage customer requirements, quantities and confirmed orders.",
   "bom-mrp": "List the materials needed for each product and calculate shortages.",
   procurement: "Request materials, compare suppliers and raise purchase orders.",
   "inward-grn": "Record deliveries and check which materials can be accepted.",
-  "inventory-traceability": "Find stock, trace fabric rolls and reserve materials for orders.",
+  "inventory-traceability": "Trace fabric lots, check quality, reserve and issue rolls against PLM products.",
   "production-execution": "Track work from cutting to packing, including scrap and rework.",
   "job-work": "Send work to outside suppliers and track what comes back.",
   "quality-management": "Inspect materials and finished goods before releasing them.",
@@ -39,6 +41,7 @@ const SUMMARIES: Record<string, string> = {
 };
 
 function ModulesPageContent() {
+  const {persona} = useDemo();
   const params = useSearchParams();
   const focus = params.get("focus");
   const workflow = params.get("workflow");
@@ -63,7 +66,7 @@ function ModulesPageContent() {
     items: group.modules.flatMap((id) => {
       const mod = MODULES.find((item) => item.id === id);
       if (!mod) return [];
-      const text = [mod.name, mod.shortName, mod.description, SUMMARIES[id], ...mod.ownerRoles, ...mod.responsibilities].join(" ").toLowerCase();
+      const text = [mod.name, mod.shortName, mod.description, SUMMARIES[id], ...mod.ownerRoles, ...mod.responsibilities, ...(MODULE_FEATURES[id] || [])].join(" ").toLowerCase();
       return text.includes(query) ? [mod] : [];
     }),
   })).filter((group) => group.items.length > 0);
@@ -129,7 +132,7 @@ function ModulesPageContent() {
                   <h3 className="text-base font-semibold">{mod.shortName}</h3>
                   {showGuide && activeModule === mod.id && <span className="text-xs font-medium text-primary">In walkthrough</span>}
                 </div>
-                <p className="mb-5 mt-2 text-sm leading-relaxed text-muted-foreground">{SUMMARIES[mod.id]}</p>
+                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-muted-foreground">{(MODULE_FEATURES[mod.id]||mod.responsibilities).map(feature=><li key={feature} className="flex gap-2"><span className="text-blue-600">•</span><span>{feature}</span></li>)}</ul><p className="mt-3 text-xs font-medium text-blue-600">{canOpenRoute(persona.role,mod.route)?"Available for your demo role":"Switch demo role to open this module"}</p><p className="mb-5 mt-2 text-sm leading-relaxed text-muted-foreground">{SUMMARIES[mod.id]}</p>
                 <div className="mt-auto flex items-center justify-between gap-2 border-t pt-3">
                   <Button variant="ghost" size="sm" aria-label={`View details for ${mod.shortName}`} onClick={() => { setSelected(mod); setDrawerOpen(true); }}>Details & connections</Button>
                   <Button asChild variant="outline" size="sm" className="gap-1.5"><Link href={mod.route} aria-label={`Open ${mod.shortName}`}>Open <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
