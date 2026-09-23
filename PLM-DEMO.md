@@ -2,6 +2,7 @@
 
 - `/plm/designs`: Master PLM, Looker table/Kanban, Material Library and Product Library.
 - `/plm/clients`: Client PLM, client directory and sequential product lifecycle.
+- `/plm/rd`: Dedicated R&D workspace, also linked from the sidebar, PLM navigation and product lifecycle.
 - `/crm/clients`: CRM-owned communication history and source references.
 
 The Library is a POT within Master PLM. Looker derives its rows from the same client products; it does not create department workflows. New products enter Derivatives, and move through R&D, Processing, Product Evaluation, Production, Cutting, Stitching, Finishing, Inventory and Delivery.
@@ -11,6 +12,18 @@ The material catalogue starts with 70 records, including 50 fabrics. Users can s
 CRM entries can be referenced into the Derivatives Data Pool. Open the CRM page to initialize its sample history, then return to Client PLM and select an entry. WhatsApp, call summaries, suppliers and prices are illustrative. Invoices and geo-tags are entered references, not live billing or tracking integrations. Stage file inventory and BOM details are recorded as evidence; binary upload and line-level manufacturing execution remain outside this local demo workspace.
 
 Persistence uses browser localStorage (`innotex-plm-lifecycle-v2`, `innotex-crm-history-v1`). This is a single-browser demo, not a shared Supabase workflow. Existing v1 PLM data remains untouched under its original key but is not automatically mapped into the new lifecycle.
+
+## R&D development workspace
+
+R&D uses the same scoped client products and browser persistence as Client PLM. Management, Admin and Sales can edit products currently in R&D; later stages retain read-only development details. Existing records remain compatible until structured development is started.
+
+Seven sections cover the development brief and Derivatives evidence, material comparison and Product Library references, discussion decisions and action owners, design versions and colourway swatches, sample revisions, editable trial BOM costing, and development checks. File and photo references are text records, not uploaded binaries. Costing uses material consumption × (1 + wastage / 100) × rate plus per-unit labour, processing and packaging.
+
+For a walkthrough, select an R&D product and choose **Load illustrative V1 scenario**. Inspect the sleeve-fit rework, create V2, revise measurements, close the discussion action, record a passing development check and link a Product Library sample. Mark the latest sample ready for presentation with a file reference. Earlier sample revisions retain their measurements, feedback, selected-material IDs, design ID and cost snapshot. A later design-selection, material-selection or cost change requires a fresh sample revision.
+
+The handover panel lists missing requirements. Successful handover records evidence for the five R&D tasks and advances the existing product to Processing, where client approval remains pending. Structured development gates also apply when advancing through Client PLM. Formal CQP sign-off remains in Product Evaluation.
+
+Validation for this update: TypeScript, 24 existing workflow tests and 5 additional R&D tests; browser verification of navigation, illustrative scenario, V2 creation, preserved V1 fields and persistence after reload.
 
 Validation: `npm run typecheck`; `node --experimental-strip-types --test tests/*.test.mjs`.
 Production build requires access to the existing Google Fonts Inter dependency in `app/layout.tsx`. The restricted-environment build could not download it; the network-enabled retry was declined.

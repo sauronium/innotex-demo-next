@@ -84,6 +84,12 @@ export function Sidebar() {
           icon: Sparkles,
         },
         {
+          title: "R&D Workspace",
+          href: "/plm/rd",
+          icon: Sparkles,
+          badge: "Develop",
+        },
+        {
           title: "CRM Client History",
           href: "/crm/clients",
           icon: Users,

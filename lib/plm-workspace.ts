@@ -42,6 +42,7 @@ export type ProductSample = {
     status: string;
 };
 export type Work = {
+    rd?: RDDevelopment;
     unit?: string;
     location?: string;
     owner?: string;
@@ -75,6 +76,47 @@ export type Workspace = {
     samples: ProductSample[];
 };
 export const workspaceKey = 'innotex-plm-lifecycle-v2';
+export type RDBomRow = { id: string; materialId: string; quantity: number; wastage: number; rate: number };
+export type RDDevelopment = {
+    brief: string; sizes: string; colours: string; target: number; deadline: string;
+    decisions: Record<string, { status: string; reason: string }>;
+    discussions: { id: string; author: string; body: string; reference: string; owner: string; due: string; resolved: boolean }[];
+    designs: { id: string; name: string; version: string; reference: string; notes: string; colour: string }[];
+    selectedDesign: string;
+    samples: { id: string; version: number; status: string; measurements: string; feedback: string; reference: string; materials: string[]; design: string; cost: number; date: string }[];
+    bom: RDBomRow[]; labour: number; processing: number; packaging: number; costNote: string;
+    trials: { id: string; name: string; expected: string; actual: string; evidence: string; status: string; action: string }[];
+};
+export const rdSampleStatuses = ['Requested', 'In progress', 'Ready for review', 'Rework', 'Ready for presentation'];
+export function rdCost(rd: RDDevelopment) {
+    return Math.round((rd.bom.reduce((sum, row) => sum + row.quantity * (1 + row.wastage / 100) * row.rate, 0) + rd.labour + rd.processing + rd.packaging) * 100) / 100;
+}
+export function newDevelopment(work: Work): RDDevelopment {
+    return { brief: work.evidence['0:0'] || '', sizes: '', colours: '', target: 0, deadline: work.due, decisions: {}, discussions: [], designs: [], selectedDesign: '', samples: [], bom: [], labour: 0, processing: 0, packaging: 0, costNote: '', trials: [] };
+}
+export function rdIssues(rd: RDDevelopment): string[] {
+    const issues: string[] = [];
+    if (!rd.brief.trim() || !rd.sizes.trim() || !rd.colours.trim() || !rd.deadline || rd.target <= 0) issues.push('Complete the brief, size range, colourways, target cost and sample deadline');
+    if (!Object.values(rd.decisions).some(d => d.status === 'Selected' && d.reason.trim())) issues.push('Select a material and record the reason');
+    if (!rd.designs.some(d => d.id === rd.selectedDesign && d.reference.trim())) issues.push('Select a design with a file reference');
+    const sample = rd.samples.at(-1);
+    if (!sample || sample.status !== 'Ready for presentation' || !sample.measurements.trim() || !sample.reference.trim()) issues.push('Latest sample needs measurements, a photo/file reference and presentation-ready status');
+    if (sample && (sample.design !== rd.selectedDesign || sample.cost !== rdCost(rd) || JSON.stringify([...sample.materials].sort()) !== JSON.stringify(Object.entries(rd.decisions).filter(([, d]) => d.status === 'Selected').map(([id]) => id).sort()))) issues.push('Create a new sample revision to capture the changed design, selected materials or costing');
+    if (!rd.bom.length || rd.bom.some(row => !row.materialId || !Number.isFinite(row.quantity) || row.quantity <= 0 || !Number.isFinite(row.rate) || row.rate < 0 || !Number.isFinite(row.wastage) || row.wastage < 0 || row.wastage > 100)) issues.push('Complete valid BOM quantities, rates and wastage');
+    if ([rd.labour, rd.processing, rd.packaging, rd.target].some(n => !Number.isFinite(n) || n < 0)) issues.push('Enter valid nonnegative cost values');
+    if (rdCost(rd) > rd.target && !rd.costNote.trim()) issues.push('Explain the cost variance above target');
+    if (!rd.discussions.length || rd.discussions.some(d => !d.resolved || !d.body.trim() || !d.owner.trim() || !d.due)) issues.push('Record a development decision and close open discussion actions');
+    if (!rd.trials.length || rd.trials.some(t => !t.name.trim() || t.status !== 'Pass' || !t.expected.trim() || !t.actual.trim() || !t.evidence.trim())) issues.push('Complete development checks with passing results and evidence');
+    return issues;
+}
+export function rdHandover(work: Work): Work {
+    if (!work.rd || work.stage !== 1 || rdIssues(work.rd).length) return work;
+    const rd = work.rd;
+    const notes = [`Material selections and ${work.sampleIds?.length || 0} library sample references`, `${rd.discussions.length} development decisions closed`, `Design ${rd.designs.find(d => d.id === rd.selectedDesign)?.version} selected`, `Sample V${rd.samples.at(-1)?.version} ready for presentation; ${rd.trials.length} checks passed`, `Trial BOM: INR ${rdCost(rd)} per unit; target INR ${rd.target}. ${rd.costNote}`];
+    const prepared = { ...work, checks: { ...work.checks }, evidence: { ...work.evidence } };
+    notes.forEach((note, i) => { prepared.checks[taskKey(1, i)] = true; prepared.evidence[taskKey(1, i)] = note; });
+    return canAdvance(prepared) ? advance(prepared) : work;
+}
 export const taskKey = (stage: number, task: number) => `${stage}:${task}`;
 export function canAdvance(work: Work) {
     if (work.completed || work.blocker?.trim() || !lifecycle[work.stage])
@@ -86,6 +128,8 @@ export function canAdvance(work: Work) {
     if (work.stage === 3 && work.cqp !== 'Signed off')
         return false;
     if (work.stage === 1 && !work.sampleIds?.length)
+        return false;
+    if (work.stage === 1 && work.rd && rdIssues(work.rd).length)
         return false;
     if (work.stage === 2 && work.approval !== 'Approved')
         return false;
@@ -139,6 +183,7 @@ export function handoverIssues(work: Work): string[] {
     if (progress.done < progress.total) issues.push(`${progress.total - progress.done} tasks need checks or evidence`);
     if (work.stage === 1 && !work.materials.length) issues.push('Link a material');
     if (work.stage === 1 && !work.sampleIds?.length) issues.push('Link a product sample');
+    if (work.stage === 1 && work.rd) issues.push(...rdIssues(work.rd));
     if (work.stage === 2 && work.approval !== 'Approved') issues.push('Client approval required');
     if (work.stage === 3 && work.cqp !== 'Signed off') issues.push('CQP sign-off required');
     if (work.stage === 9) {
